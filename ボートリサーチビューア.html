@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ボートリサーチ新聞ビューア</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic UI", sans-serif;
+  background: #f4f5f7;
+  color: #222;
+  min-height: 100vh;
+}
+#app {
+  max-width: 520px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: #fff;
+  box-shadow: 0 0 20px rgba(0,0,0,0.08);
+}
+#header {
+  background: #fff;
+  padding: 10px 16px 8px;
+  border-bottom: 2px solid #1a5fa8;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+#header h1 { font-size: 16px; font-weight: 700; color: #1a5fa8; }
+#header-date { font-size: 11px; color: #888; text-align: right; }
+#venue-bar {
+  background: #f0f4f9;
+  border-bottom: 1px solid #dde3ec;
+  overflow-x: auto;
+  flex-shrink: 0;
+  scrollbar-width: none;
+}
+#venue-bar::-webkit-scrollbar { display: none; }
+#venue-tabs { display: flex; padding: 6px 8px; gap: 4px; min-width: max-content; }
+.venue-tab {
+  padding: 5px 11px;
+  border-radius: 16px;
+  font-size: 13px;
+  font-weight: 500;
+  border: 1px solid #c8d4e3;
+  background: #fff;
+  color: #555;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.12s;
+}
+.venue-tab.active { background: #1a5fa8; border-color: #1a5fa8; color: #fff; }
+.venue-tab:hover:not(.active) { background: #e4ecf7; color: #1a5fa8; border-color: #9ab5d9; }
+#race-bar {
+  background: #fff;
+  border-bottom: 1px solid #e5e9f0;
+  overflow-x: auto;
+  flex-shrink: 0;
+  scrollbar-width: none;
+}
+#race-bar::-webkit-scrollbar { display: none; }
+#race-tabs { display: flex; padding: 5px 8px; gap: 3px; min-width: max-content; }
+.race-tab {
+  padding: 4px 9px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid #dde3ec;
+  background: #fff;
+  color: #888;
+  cursor: pointer;
+  min-width: 40px;
+  text-align: center;
+  transition: all 0.12s;
+}
+.race-tab.active { background: #e8f0fc; border-color: #1a5fa8; color: #1a5fa8; font-weight: 700; }
+.race-tab:hover:not(.active) { background: #f4f7fc; color: #555; }
+#content {
+  flex: 1;
+  overflow-y: auto;
+  background: #f4f5f7;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 10px;
+}
+#image-wrapper { width: 100%; }
+#race-image {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 6px;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.10);
+  transform-origin: top center;
+  transition: transform 0.15s;
+}
+#placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  gap: 10px;
+  padding: 40px 20px;
+  text-align: center;
+  width: 100%;
+}
+#placeholder .icon { font-size: 44px; opacity: 0.2; }
+#placeholder p { font-size: 13px; color: #aaa; line-height: 1.7; white-space: pre-line; }
+#status-bar {
+  background: #fff;
+  border-top: 1px solid #e5e9f0;
+  padding: 5px 12px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+#status-bar span { font-size: 11px; color: #aaa; }
+#status-text { color: #444 !important; font-weight: 500; }
+#zoom-controls {
+  position: fixed;
+  bottom: 56px;
+  right: calc(50% - 245px);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  z-index: 50;
+}
+@media (max-width: 520px) { #zoom-controls { right: 8px; } }
+.zoom-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.95);
+  border: 1px solid #c8d4e3;
+  color: #1a5fa8;
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+  line-height: 1;
+}
+.zoom-btn:hover { background: #e4ecf7; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="header">
+    <h1>⛵ ボートリサーチ新聞</h1>
+    <div id="header-date"></div>
+  </div>
+  <div id="venue-bar"><div id="venue-tabs"></div></div>
+  <div id="race-bar"><div id="race-tabs"></div></div>
+  <div id="content">
+    <div id="placeholder">
+      <div class="icon">🗞️</div>
+      <p>場を選んでください</p>
+    </div>
+    <div id="image-wrapper" style="display:none;">
+      <img id="race-image" src="" alt="レース予想紙" />
+    </div>
+  </div>
+  <div id="status-bar">
+    <span id="status-text">場・レースを選択してください</span>
+    <span id="file-name"></span>
+  </div>
+</div>
+
+<div id="zoom-controls">
+  <button class="zoom-btn" onclick="zoomIn()" title="拡大">＋</button>
+  <button class="zoom-btn" onclick="zoomReset()" title="リセット" style="font-size:12px;">⟳</button>
+  <button class="zoom-btn" onclick="zoomOut()" title="縮小">－</button>
+</div>
+
+<script>
+const VENUES = [
+  "桐生","戸田","江戸川","平和島","多摩川","浜名湖",
+  "蒲郡","常滑","津","三国","びわこ","住之江",
+  "尼崎","鳴門","丸亀","児島","宮島","徳山",
+  "下関","若松","芦屋","福岡","唐津","大村"
+];
+const RACES = [1,2,3,4,5,6,7,8,9,10,11,12];
+
+let currentVenue = null;
+let currentRace = null;
+let zoomLevel = 1;
+
+function getToday() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const day = String(d.getDate()).padStart(2,'0');
+  return {
+    yyyymmdd: `${y}${m}${day}`,
+    hyphen: `${y}-${m}-${day}`,
+    display: `${y}年${m}月${day}日`
+  };
+}
+const today = getToday();
+document.getElementById('header-date').textContent = `${today.display} 発行`;
+
+// パス構成: このHTMLを「ボートリサーチ新聞_出力」フォルダに置く
+// → ./2026-04-15/丸亀_1R_20260415.png
+function buildPath(venue, race) {
+  return `./${today.hyphen}/${venue}_${race}R_${today.yyyymmdd}.png`;
+}
+
+function buildVenueTabs() {
+  const c = document.getElementById('venue-tabs');
+  VENUES.forEach(v => {
+    const btn = document.createElement('button');
+    btn.className = 'venue-tab';
+    btn.textContent = v;
+    btn.onclick = () => selectVenue(v);
+    c.appendChild(btn);
+  });
+}
+
+function buildRaceTabs() {
+  const c = document.getElementById('race-tabs');
+  RACES.forEach(r => {
+    const btn = document.createElement('button');
+    btn.className = 'race-tab';
+    btn.textContent = `${r}R`;
+    btn.dataset.race = r;
+    btn.onclick = () => selectRace(r);
+    c.appendChild(btn);
+  });
+}
+
+function selectVenue(venue) {
+  currentVenue = venue;
+  currentRace = null;
+  document.querySelectorAll('.venue-tab').forEach(t => t.classList.toggle('active', t.textContent === venue));
+  document.querySelectorAll('.race-tab').forEach(t => t.classList.remove('active'));
+  showPlaceholder(`${venue}のレースを選んでください`);
+  scrollIntoTab('.venue-tab.active', 'venue-bar');
+}
+
+function selectRace(race) {
+  if (!currentVenue) { showPlaceholder('まず場を選んでください'); return; }
+  currentRace = race;
+  document.querySelectorAll('.race-tab').forEach(t => t.classList.toggle('active', parseInt(t.dataset.race) === race));
+  loadImage(currentVenue, race);
+  scrollIntoTab('.race-tab.active', 'race-bar');
+}
+
+function loadImage(venue, race) {
+  const path = buildPath(venue, race);
+  const img = document.getElementById('race-image');
+  const wrapper = document.getElementById('image-wrapper');
+  const ph = document.getElementById('placeholder');
+  const fname = path.split('/').pop();
+
+  img.onload = () => {
+    ph.style.display = 'none';
+    wrapper.style.display = 'block';
+    document.getElementById('status-text').textContent = `${venue}　${race}R`;
+    document.getElementById('file-name').textContent = fname;
+    applyZoom();
+  };
+  img.onerror = () => {
+    wrapper.style.display = 'none';
+    ph.style.display = 'flex';
+    ph.querySelector('p').textContent = `${venue} ${race}R の画像がありません\n(${fname})`;
+    document.getElementById('status-text').textContent = '画像なし';
+    document.getElementById('file-name').textContent = fname;
+  };
+  img.src = path + '?t=' + Date.now(); // キャッシュ回避
+}
+
+function showPlaceholder(msg) {
+  document.getElementById('placeholder').style.display = 'flex';
+  document.getElementById('placeholder').querySelector('p').textContent = msg;
+  document.getElementById('image-wrapper').style.display = 'none';
+  document.getElementById('status-text').textContent = '場・レースを選択してください';
+  document.getElementById('file-name').textContent = '';
+}
+
+function scrollIntoTab(sel, barId) {
+  const tab = document.querySelector(sel);
+  const bar = document.getElementById(barId);
+  if (tab && bar) bar.scrollTo({ left: tab.offsetLeft - bar.clientWidth / 2 + tab.clientWidth / 2, behavior: 'smooth' });
+}
+
+function zoomIn()    { zoomLevel = Math.min(zoomLevel + 0.25, 3.0); applyZoom(); }
+function zoomOut()   { zoomLevel = Math.max(zoomLevel - 0.25, 0.5); applyZoom(); }
+function zoomReset() { zoomLevel = 1; applyZoom(); }
+function applyZoom() {
+  const img = document.getElementById('race-image');
+  img.style.transform = `scale(${zoomLevel})`;
+}
+
+buildVenueTabs();
+buildRaceTabs();
+</script>
+</body>
+</html>
